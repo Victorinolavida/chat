@@ -16,3 +16,7 @@ class Config:
         "DATABASE_URL", f"sqlite:///{BASE_DIR / 'chat.db'}"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    HOST = os.getenv("HOST", "0.0.0.0")
+    PORT = int(os.getenv("PORT", "5000"))
+    DEBUG = os.getenv("DEBUG", "true").lower() in {"1", "true", "yes", "on"}
