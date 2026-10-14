@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -22,6 +22,13 @@ class MessageReadDTO(BaseModel):
     to_user_id: int | None = None
     body: str
     created_at: datetime
+
+    @field_validator("created_at", mode="before")
+    @classmethod
+    def assume_utc(cls, value):
+        if isinstance(value, datetime) and value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
 
     @classmethod
     def from_model(cls, message) -> "MessageReadDTO":

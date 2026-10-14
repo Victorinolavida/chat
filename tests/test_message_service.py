@@ -1,5 +1,6 @@
 import uuid
 
+from app.dtos.message_dto import MessageReadDTO
 from app.extensions import db
 from app.models.user import User
 from app.services.message_service import build_message_service
@@ -57,3 +58,13 @@ def test_list_recent_respects_limit(app_context):
     messages = service.list_recent(limit=2)
 
     assert [m.body for m in messages] == ["message 3", "message 4"]
+
+
+def test_read_dto_serializes_created_at_as_utc(app_context):
+    user = _make_user()
+    message = build_message_service().create(user, "hello")
+
+    payload = MessageReadDTO.from_model(message).model_dump(mode="json")
+
+    assert payload["created_at"].endswith(("Z", "+00:00"))
+    assert payload["from_username"] == "sender"
