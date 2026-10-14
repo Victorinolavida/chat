@@ -46,6 +46,7 @@ def register_chat_events(socketio: SocketIO) -> None:
 
         session["user_id"] = user.id
         join_room(ROOM_LOBBY)
+        join_room(f"user:{user.id}")
         presence.add(request.sid, user.id)
 
         emit(
@@ -62,7 +63,6 @@ def register_chat_events(socketio: SocketIO) -> None:
         conv_service = build_conversation_service()
         for conversation in conv_service.list_for_user(user):
             join_room(ROOM_CONVERSATION.format(id=conversation.id))
-
     @socketio.on("chat:message")
     def handle_message(data):
         user_id = session.get("user_id")
@@ -72,6 +72,7 @@ def register_chat_events(socketio: SocketIO) -> None:
 
         data = data or {}
         conversation_id = data.get("conversation_id") or None
+        is_private = bool(data.get("private", False)) or conversation_id is not None
 
         try:
             payload = MessageCreateDTO.model_validate(
@@ -115,24 +116,38 @@ def register_chat_events(socketio: SocketIO) -> None:
 
         message = build_message_service().create(user, payload.body, conversation_id)
 
-        if conversation_id is not None:
-            emit(
-                "chat:message",
-                MessageReadDTO.from_model(message).model_dump(mode="json"),
-                to=ROOM_CONVERSATION.format(id=conversation_id),
-            )
-            return
+        if is_private:
+            if conversation_id is not None:
+                emit(
+                    "chat:message",
+                    MessageReadDTO.from_model(message).model_dump(mode="json"),
+                    to=ROOM_CONVERSATION.format(id=conversation_id),
+                )
+                return
+            to_user_id = data.get("to_user_id")
+            if to_user_id is not None:
+                emit(
+                    "chat:message",
+                    MessageReadDTO.from_model(message).model_dump(mode="json"),
+                    to=f"user:{to_user_id}",
+                )
+                emit(
+                    "chat:message",
+                    MessageReadDTO.from_model(message).model_dump(mode="json"),
+                    to=f"user:{user.id}",
+                )
+                return
 
         emit(
             "chat:message",
             MessageReadDTO.from_model(message).model_dump(mode="json"),
             to=ROOM_LOBBY,
         )
-
     @socketio.on("disconnect")
     def handle_disconnect():
         user_id = session.get("user_id")
         presence.remove(request.sid)
         leave_room(ROOM_LOBBY, sid=request.sid)
+        leave_room(f"user:{user_id}", sid=request.sid) if user_id else None
         if user_id:
             emit("presence:update", {"user_id": user_id, "online": False}, broadcast=True)
