@@ -1,7 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { io } from 'socket.io-client'
+import { authRequest } from './api'
 
 const AUTH_ERROR = /auth|token|jwt|expired|unauthor|forbidden/i
+
+const parseTime = (value) => {
+  const time = new Date(value).getTime()
+  return Number.isNaN(time) ? null : time
+}
+
+const sortItems = (items) =>
+  items
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const diff = a.item.time - b.item.time
+      return diff !== 0 ? diff : a.index - b.index
+    })
+    .map(({ item }) => item)
 
 export default function Chat({ session, onLogout, onAuthError }) {
   const { user, token } = session
@@ -9,6 +24,8 @@ export default function Chat({ session, onLogout, onAuthError }) {
   const [draft, setDraft] = useState('')
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState('')
+  const [historyError, setHistoryError] = useState('')
+  const [loadingHistory, setLoadingHistory] = useState(false)
   const socketRef = useRef(null)
   const bottomRef = useRef(null)
   const seqRef = useRef(0)
@@ -24,18 +41,41 @@ export default function Chat({ session, onLogout, onAuthError }) {
       if (AUTH_ERROR.test(err?.message || '')) onAuthError()
     }
     const onMessage = (payload) => {
-      seqRef.current += 1
-      setMessages((current) => [
-        ...current,
-        { key: `m${seqRef.current}`, kind: 'message', payload },
-      ])
+      setMessages((current) => {
+        const id = payload?.id
+        if (
+          id &&
+          current.some(
+            (item) => item.kind === 'message' && item.payload?.id === id,
+          )
+        ) {
+          return current
+        }
+        seqRef.current += 1
+        return sortItems([
+          ...current,
+          {
+            key: id || `m${seqRef.current}`,
+            kind: 'message',
+            payload,
+            time: parseTime(payload?.created_at) ?? Date.now(),
+          },
+        ])
+      })
     }
     const onSystem = (payload) => {
       seqRef.current += 1
-      setMessages((current) => [
-        ...current,
-        { key: `s${seqRef.current}`, kind: 'system', payload },
-      ])
+      setMessages((current) =>
+        sortItems([
+          ...current,
+          {
+            key: `s${seqRef.current}`,
+            kind: 'system',
+            payload,
+            time: Date.now(),
+          },
+        ]),
+      )
     }
     const onError = (payload) => {
       setError(payload?.message || payload?.error || 'Something went wrong')
@@ -64,6 +104,70 @@ export default function Chat({ session, onLogout, onAuthError }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  useEffect(() => {
+    if (!token) return undefined
+    const controller = new AbortController()
+    const { signal } = controller
+    let cancelled = false
+
+    const loadHistory = async () => {
+      setHistoryError('')
+      setLoadingHistory(true)
+      try {
+        const data = await authRequest('/messages', {
+          method: 'GET',
+          token,
+          signal,
+        })
+        if (cancelled || signal.aborted) return
+        const historyMessages = Array.isArray(data?.messages) ? data.messages : []
+        if (historyMessages.length > 0) {
+          setMessages((current) => {
+            const seen = new Set()
+            for (const item of current) {
+              if (item.kind === 'message' && item.payload?.id) {
+                seen.add(item.payload.id)
+              }
+            }
+            const additions = []
+            for (const message of historyMessages) {
+              if (!message) continue
+              if (message.id && seen.has(message.id)) continue
+              if (message.id) seen.add(message.id)
+              seqRef.current += 1
+              additions.push({
+                key: message.id || `h${seqRef.current}`,
+                kind: 'message',
+                payload: message,
+                time: parseTime(message.created_at) ?? 0,
+              })
+            }
+            if (additions.length === 0) return current
+            return sortItems([...current, ...additions])
+          })
+        }
+      } catch (err) {
+        if (cancelled || signal.aborted) return
+        const msg = err?.message || ''
+        if (err?.status === 401 || AUTH_ERROR.test(msg)) {
+          onAuthError()
+          return
+        }
+        setHistoryError('Could not load history.')
+      } finally {
+        if (!cancelled && !signal.aborted) {
+          setLoadingHistory(false)
+        }
+      }
+    }
+
+    loadHistory()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [token, onAuthError])
+
   const text = draft.trim()
   const canSend = text.length > 0 && connected
 
@@ -90,6 +194,7 @@ export default function Chat({ session, onLogout, onAuthError }) {
       </header>
 
       <div className="messages">
+        {loadingHistory && <p className="loading">Loading messages…</p>}
         {messages.map((item) =>
           item.kind === 'system' ? (
             <p key={item.key} className="system">
@@ -106,6 +211,7 @@ export default function Chat({ session, onLogout, onAuthError }) {
         <div ref={bottomRef} />
       </div>
 
+      {historyError && <p className="error">{historyError}</p>}
       {error && <p className="error">{error}</p>}
 
       <form onSubmit={send}>

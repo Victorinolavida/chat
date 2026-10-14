@@ -149,6 +149,14 @@ button.link {
   text-align: center;
 }
 
+.messages .loading {
+  align-self: center;
+  margin: 0;
+  font-size: 0.75rem;
+  opacity: 0.5;
+  text-align: center;
+}
+
 .chat form {
   display: flex;
   gap: 0.5rem;
