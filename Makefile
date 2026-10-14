@@ -1,4 +1,4 @@
-.PHONY: help install run db-init db-migrate db-upgrade db-downgrade db-reset shell routes clean
+.PHONY: help install run test db-init db-migrate db-upgrade db-downgrade db-reset shell routes clean
 
 FLASK := uv run flask --app run.py
 
@@ -32,6 +32,9 @@ shell: ## Open a Flask shell
 
 routes: ## List registered routes
 	$(FLASK) routes
+
+test: ## Run the backend test suite
+	uv run pytest -q
 
 clean: ## Remove caches and the SQLite database
 	rm -rf .pytest_cache .ruff_cache __pycache__ app/**/__pycache__ chat.db
