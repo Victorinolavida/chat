@@ -108,22 +108,45 @@ button.link {
   text-align: left;
 }
 
-.messages p {
-  margin: 0;
+.messages .bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-width: 75%;
   padding: 0.5rem 0.75rem;
   border-radius: 10px;
   background: var(--bg-raised);
+  word-break: break-word;
 }
 
-.messages p.mine {
+.messages .bubble.theirs {
+  align-self: flex-start;
+}
+
+.messages .bubble.mine {
+  align-self: flex-end;
   background: var(--accent-soft);
 }
 
-.messages .meta {
-  display: block;
+.messages .bubble .meta {
   font-size: 0.7rem;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.messages .bubble .time {
+  align-self: flex-end;
+  font-size: 0.65rem;
+  opacity: 0.5;
+}
+
+.messages .system {
+  align-self: center;
+  margin: 0;
+  font-size: 0.75rem;
+  font-style: italic;
   opacity: 0.6;
-  margin-bottom: 0.15rem;
+  text-align: center;
 }
 
 .chat form {

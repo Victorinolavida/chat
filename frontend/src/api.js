@@ -1,8 +1,12 @@
-const request = async (path, payload) => {
+const request = async (path, { method = 'POST', payload, token } = {}) => {
+  const headers = {}
+  if (payload !== undefined) headers['Content-Type'] = 'application/json'
+  if (token) headers.Authorization = `Bearer ${token}`
+
   const response = await fetch(path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    method,
+    headers,
+    body: payload !== undefined ? JSON.stringify(payload) : undefined,
   })
 
   const data = await response.json().catch(() => ({}))
@@ -12,5 +16,7 @@ const request = async (path, payload) => {
   return data
 }
 
-export const register = (payload) => request('/auth/register', payload)
-export const login = (payload) => request('/auth/login', payload)
+export const register = (payload) => request('/auth/register', { payload })
+export const login = (payload) => request('/auth/login', { payload })
+
+export const authRequest = (path, options = {}) => request(path, options)

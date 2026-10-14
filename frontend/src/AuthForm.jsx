@@ -15,11 +15,12 @@ export default function AuthForm({ onAuthenticated }) {
     setError('')
     setBusy(true)
     try {
-      const data =
-        mode === 'register'
-          ? await register(form)
-          : await login({ email: form.email, password: form.password })
-      onAuthenticated(data)
+      const credentials = { email: form.email, password: form.password }
+      if (mode === 'register') {
+        await register(form)
+      }
+      const { access_token: token, user } = await login(credentials)
+      onAuthenticated({ token, user })
     } catch (err) {
       setError(err.message)
     } finally {
