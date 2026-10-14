@@ -1,6 +1,7 @@
-.PHONY: help install run test db-init db-migrate db-upgrade db-downgrade db-reset shell routes clean
+.PHONY: help install run test db-init db-migrate db-upgrade db-downgrade db-reset shell routes frontend-install frontend-dev frontend-build frontend-lint clean
 
 FLASK := uv run flask --app run.py
+FRONTEND := npm --prefix frontend
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -35,6 +36,18 @@ routes: ## List registered routes
 
 test: ## Run the backend test suite
 	uv run pytest -q
+
+frontend-install: ## Install frontend dependencies
+	$(FRONTEND) install
+
+frontend-dev: ## Start the frontend dev server (proxies API to Flask)
+	$(FRONTEND) run dev
+
+frontend-build: ## Build the frontend for production
+	$(FRONTEND) run build
+
+frontend-lint: ## Lint the frontend
+	$(FRONTEND) run lint
 
 clean: ## Remove caches and the SQLite database
 	rm -rf .pytest_cache .ruff_cache __pycache__ app/**/__pycache__ chat.db
