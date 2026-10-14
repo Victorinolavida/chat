@@ -20,6 +20,7 @@ class MessageReadDTO(BaseModel):
     from_user_id: int
     from_username: str
     to_user_id: int | None = None
+    conversation_id: str | None = None
     body: str
     created_at: datetime
 
@@ -37,6 +38,7 @@ class MessageReadDTO(BaseModel):
             from_user_id=message.from_user_id,
             from_username=message.from_user.username,
             to_user_id=message.to_user_id,
+            conversation_id=message.conversation_id,
             body=message.body,
             created_at=message.created_at,
         )

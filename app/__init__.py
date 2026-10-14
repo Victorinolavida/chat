@@ -14,10 +14,11 @@ def create_app(config_class: type = Config) -> Flask:
     socketio.init_app(app, cors_allowed_origins="*")
 
     from app import models  # noqa: F401  (register models with Alembic)
-    from app.routes import auth_bp
+    from app.routes import auth_bp, messages_bp
     from app.sockets import register_chat_events
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(messages_bp)
     register_chat_events(socketio)
 
     @app.get("/health")

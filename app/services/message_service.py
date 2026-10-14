@@ -4,10 +4,17 @@ from app.models.user import User
 
 
 class MessageService:
-    def create(self, sender: User, body: str, to_user: User | None = None) -> Message:
+    def create(
+        self,
+        sender: User,
+        body: str,
+        to_user: User | None = None,
+        conversation_id: str | None = None,
+    ) -> Message:
         message = Message(
             from_user_id=sender.id,
             to_user_id=to_user.id if to_user else None,
+            conversation_id=conversation_id,
             body=body,
         )
         db.session.add(message)
@@ -18,6 +25,18 @@ class MessageService:
         rows = db.session.execute(
             db.select(Message).order_by(Message.created_at.desc()).limit(limit)
         ).scalars()
+        return list(reversed(rows.all()))
+
+    def list_by_conversation(
+        self, conversation_id: str | None = None, limit: int = 50
+    ) -> list[Message]:
+        query = db.select(Message)
+        if conversation_id is None:
+            query = query.filter(Message.conversation_id.is_(None))
+        else:
+            query = query.filter(Message.conversation_id == conversation_id)
+        query = query.order_by(Message.created_at.desc()).limit(limit)
+        rows = db.session.execute(query).scalars()
         return list(reversed(rows.all()))
 
 

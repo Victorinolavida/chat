@@ -18,6 +18,7 @@ class Message(db.Model):
     to_user_id = db.Column(
         db.Integer, db.ForeignKey("users.id"), nullable=True, index=True
     )
+    conversation_id = db.Column(db.String(36), nullable=True, index=True)
     body = db.Column(db.Text, nullable=False)
     created_at = db.Column(
         db.DateTime,
