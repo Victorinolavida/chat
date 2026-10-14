@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
         '/auth': target,
         '/health': target,
         '/messages': target,
-        '/socket.io': {
+        '/ws': {
           target,
           ws: true,
         },

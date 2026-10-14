@@ -3,6 +3,7 @@ import { io } from 'socket.io-client'
 import { authRequest } from './api'
 
 const AUTH_ERROR = /auth|token|jwt|expired|unauthor|forbidden/i
+const SOCKET_PATH = '/ws'
 
 const parseTime = (value) => {
   const time = new Date(value).getTime()
@@ -31,7 +32,7 @@ export default function Chat({ session, onLogout, onAuthError }) {
   const seqRef = useRef(0)
 
   useEffect(() => {
-    const socket = io({ auth: { token } })
+    const socket = io({ path: SOCKET_PATH, auth: { token } })
     socketRef.current = socket
 
     const onConnect = () => setConnected(true)
