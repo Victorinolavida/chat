@@ -1,0 +1,35 @@
+from datetime import datetime
+
+from pydantic import BaseModel, Field, field_validator
+
+
+class MessageCreateDTO(BaseModel):
+    body: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("body")
+    @classmethod
+    def strip_and_require_content(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("message must not be empty")
+        return stripped
+
+
+class MessageReadDTO(BaseModel):
+    id: str
+    from_user_id: int
+    from_username: str
+    to_user_id: int | None = None
+    body: str
+    created_at: datetime
+
+    @classmethod
+    def from_model(cls, message) -> "MessageReadDTO":
+        return cls(
+            id=message.id,
+            from_user_id=message.from_user_id,
+            from_username=message.from_user.username,
+            to_user_id=message.to_user_id,
+            body=message.body,
+            created_at=message.created_at,
+        )
