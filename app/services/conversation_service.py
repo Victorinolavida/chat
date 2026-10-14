@@ -25,6 +25,23 @@ class ConversationService:
             is not None
         )
 
+    def get_by_members(self, user_ids: list[int]) -> Conversation | None:
+        member_set = set(user_ids)
+        if len(member_set) < 2:
+            return None
+
+        convs = (
+            db.session.execute(
+                db.select(Conversation).order_by(Conversation.created_at.asc())
+            )
+            .unique()
+            .scalars()
+        )
+        for conv in convs:
+            if set(conv.member_ids()) == member_set:
+                return conv
+        return None
+
     def list_for_user(self, user: User) -> list[Conversation]:
         query = (
             db.select(Conversation)
@@ -36,6 +53,7 @@ class ConversationService:
 
     def create(self, creator: User, user_ids: list[int]) -> Conversation:
         member_ids = list(dict.fromkeys([*user_ids, creator.id]))
+        member_set = set(member_ids)
 
         users = list(
             db.session.execute(
@@ -48,6 +66,11 @@ class ConversationService:
             raise InvalidParticipantsError(
                 f"Unknown user id(s): {', '.join(map(str, missing))}"
             )
+
+        if len(member_set) >= 2:
+            existing = self.get_by_members(member_set)
+            if existing is not None:
+                return existing
 
         conversation = Conversation()
         conversation.members = [
