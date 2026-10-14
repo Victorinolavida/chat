@@ -4,6 +4,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+INSTANCE_DIR = BASE_DIR / "instance"
 
 load_dotenv(BASE_DIR / ".env")
 
@@ -13,7 +14,7 @@ class Config:
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-me-in-production")
 
     SQLALCHEMY_DATABASE_URI = os.getenv(
-        "DATABASE_URL", f"sqlite:///{BASE_DIR / 'chat.db'}"
+        "DATABASE_URL", f"sqlite:///{INSTANCE_DIR / 'chat.db'}"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 

@@ -25,7 +25,7 @@ db-downgrade: ## Roll back the last migration
 	$(FLASK) db downgrade
 
 db-reset: ## Drop and recreate the database, then apply migrations
-	rm -f chat.db
+	rm -f instance/chat.db chat.db
 	$(FLASK) db upgrade
 
 shell: ## Open a Flask shell
