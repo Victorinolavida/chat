@@ -42,17 +42,21 @@ def test_returns_messages_for_a_conversation(app_context, client):
     user = _make_user()
     service = build_message_service()
     service.create(user, "general one")
-    service.create(user, "hi there", conversation_id="conv-1")
-    service.create(user, "other conv", conversation_id="conv-2")
+    conv_service = None
+    from app.services.conversation_service import build_conversation_service
+
+    conv_service = build_conversation_service()
+    conversation = conv_service.create(user, [user.id])
+    service.create(user, "hi there", conversation_id=conversation.id)
 
     response = client.get(
-        "/messages?conversation_id=conv-1", headers=_auth_header(user)
+        f"/messages?conversation_id={conversation.id}", headers=_auth_header(user)
     )
 
+    assert response.status_code == 200
     body = response.get_json()
-    assert body["conversation_id"] == "conv-1"
+    assert body["conversation_id"] == conversation.id
     assert [m["body"] for m in body["messages"]] == ["hi there"]
-
 
 def test_messages_are_chronological(app_context, client):
     user = _make_user()

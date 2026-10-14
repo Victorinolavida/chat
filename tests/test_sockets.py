@@ -53,8 +53,7 @@ def test_sending_message_persists_and_broadcasts(app_context):
     assert payload["body"] == "hello world"
     assert payload["from_username"] == "sender"
     assert payload["from_user_id"] == user.id
-    assert payload["to_user_id"] is None
-
+    assert payload["conversation_id"] is None
     assert db.session.query(Message).count() == 1
 
 

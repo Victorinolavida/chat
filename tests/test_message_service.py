@@ -19,7 +19,7 @@ def test_create_persists_message(app_context):
 
     assert message.body == "hello world"
     assert message.from_user_id == user.id
-    assert message.to_user_id is None
+    assert message.conversation_id is None
     assert message.created_at is not None
     assert uuid.UUID(message.id).version == 7
 
@@ -29,14 +29,12 @@ def test_create_persists_message(app_context):
     assert stored.from_user.username == "sender"
 
 
-def test_create_with_recipient(app_context):
+def test_create_in_conversation(app_context):
     sender = _make_user()
-    recipient = _make_user(username="recipient", email="r@example.com")
+    message = build_message_service().create(sender, "hi there", conversation_id="conv-1")
 
-    message = build_message_service().create(sender, "hi there", to_user=recipient)
-
-    assert message.to_user_id == recipient.id
-
+    assert message.conversation_id == "conv-1"
+    assert message.from_user_id == sender.id
 
 def test_list_recent_is_chronological(app_context):
     user = _make_user()
