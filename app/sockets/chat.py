@@ -115,34 +115,22 @@ def register_chat_events(socketio: SocketIO) -> None:
                     return
 
         message = build_message_service().create(user, payload.body, conversation_id)
+        serialized = MessageReadDTO.from_model(message).model_dump(mode="json")
 
         if is_private:
             if conversation_id is not None:
-                emit(
-                    "chat:message",
-                    MessageReadDTO.from_model(message).model_dump(mode="json"),
-                    to=ROOM_CONVERSATION.format(id=conversation_id),
-                )
+                conversation = conv_service.get(conversation_id)
+                member_ids = conversation.member_ids() if conversation else [user.id]
+                for member_id in member_ids:
+                    emit("chat:message", serialized, to=f"user:{member_id}")
                 return
             to_user_id = data.get("to_user_id")
             if to_user_id is not None:
-                emit(
-                    "chat:message",
-                    MessageReadDTO.from_model(message).model_dump(mode="json"),
-                    to=f"user:{to_user_id}",
-                )
-                emit(
-                    "chat:message",
-                    MessageReadDTO.from_model(message).model_dump(mode="json"),
-                    to=f"user:{user.id}",
-                )
+                emit("chat:message", serialized, to=f"user:{to_user_id}")
+                emit("chat:message", serialized, to=f"user:{user.id}")
                 return
 
-        emit(
-            "chat:message",
-            MessageReadDTO.from_model(message).model_dump(mode="json"),
-            to=ROOM_LOBBY,
-        )
+        emit("chat:message", serialized, to=ROOM_LOBBY)
     @socketio.on("disconnect")
     def handle_disconnect():
         user_id = session.get("user_id")

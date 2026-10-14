@@ -1,6 +1,10 @@
+import threading
+
 from app.extensions import db
 from app.models.conversation import Conversation, ConversationMember
 from app.models.user import User
+
+_create_lock = threading.Lock()
 
 
 class ConversationNotFoundError(Exception):
@@ -68,9 +72,17 @@ class ConversationService:
             )
 
         if len(member_set) >= 2:
-            existing = self.get_by_members(member_set)
-            if existing is not None:
-                return existing
+            with _create_lock:
+                existing = self.get_by_members(member_set)
+                if existing is not None:
+                    return existing
+                conversation = Conversation()
+                conversation.members = [
+                    ConversationMember(user_id=user_id) for user_id in member_ids
+                ]
+                db.session.add(conversation)
+                db.session.commit()
+                return conversation
 
         conversation = Conversation()
         conversation.members = [

@@ -293,6 +293,7 @@ export default function Chat({ session, onLogout, onAuthError }) {
     setError('')
     const payload = { message: text }
     if (activeId) {
+      payload.private = true
       payload.conversation_id = activeId
       const other = activeConversation?.members?.find(
         (member) => member.id !== user.id,
