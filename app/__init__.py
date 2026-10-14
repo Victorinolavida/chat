@@ -11,7 +11,11 @@ def create_app(config_class: type = Config) -> Flask:
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
-    socketio.init_app(app, cors_allowed_origins="*")
+    socketio.init_app(
+        app,
+        cors_allowed_origins="*",
+        path=app.config["SOCKETIO_PATH"],
+    )
 
     from app import models  # noqa: F401  (register models with Alembic)
     from app.routes import auth_bp, messages_bp
