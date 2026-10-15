@@ -63,11 +63,23 @@ const useNotificationSound = () => {
   const contextRef = useRef(null)
 
   useEffect(() => {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext
+    if (!AudioCtx) return undefined
+
     const unlock = () => {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext
-      if (!AudioCtx) return
-      if (!contextRef.current) contextRef.current = new AudioCtx()
-      if (contextRef.current.state === 'suspended') contextRef.current.resume()
+      try {
+        if (!contextRef.current) contextRef.current = new AudioCtx()
+        const context = contextRef.current
+        if (context.state === 'suspended') context.resume()
+        // Play a silent buffer so the context is fully unlocked and can later
+        // play in response to a socket event (outside a user gesture).
+        const source = context.createBufferSource()
+        source.buffer = context.createBuffer(1, 1, 22050)
+        source.connect(context.destination)
+        source.start(0)
+      } catch {
+        // Ignore: a blocked audio context must never break the app.
+      }
     }
 
     window.addEventListener('pointerdown', unlock)
@@ -82,22 +94,29 @@ const useNotificationSound = () => {
 
   return useCallback(() => {
     const context = contextRef.current
-    if (!context || context.state !== 'running') return
+    if (!context) return
+    try {
+      if (context.state === 'suspended') context.resume()
+      if (context.state !== 'running') return
 
-    const now = context.currentTime
-    const oscillator = context.createOscillator()
-    const gain = context.createGain()
-    oscillator.type = 'sine'
-    oscillator.frequency.setValueAtTime(880, now)
-    oscillator.frequency.exponentialRampToValueAtTime(1320, now + 0.12)
-    gain.gain.setValueAtTime(0.0001, now)
-    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02)
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3)
-    oscillator.connect(gain).connect(context.destination)
-    oscillator.start(now)
-    oscillator.stop(now + 0.32)
+      const now = context.currentTime
+      const oscillator = context.createOscillator()
+      const gain = context.createGain()
+      oscillator.type = 'sine'
+      oscillator.frequency.setValueAtTime(880, now)
+      oscillator.frequency.exponentialRampToValueAtTime(1320, now + 0.12)
+      gain.gain.setValueAtTime(0.0001, now)
+      gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3)
+      oscillator.connect(gain).connect(context.destination)
+      oscillator.start(now)
+      oscillator.stop(now + 0.32)
+    } catch {
+      // Ignore: sound is best-effort and must not affect messaging.
+    }
   }, [])
 }
+
 
 export default function Chat({ session, onLogout, onAuthError }) {
   const { user, token } = session
@@ -229,31 +248,7 @@ export default function Chat({ session, onLogout, onAuthError }) {
       setConnected(false)
       if (AUTH_ERROR.test(err?.message || '')) onAuthError()
     }
-    const onMessage = (payload) => {
-      const conversationId = payload?.conversation_id ?? null
-      const isOwn = payload?.from_user_id === user.id
-      const isActive = conversationId === activeIdRef.current
-
-      if (!isOwn) {
-        playNotification()
-        if (
-          conversationId &&
-          !conversationsRef.current.some((item) => item.id === conversationId)
-        ) {
-          refreshConversations()
-        }
-      }
-
-      if (!isActive) {
-        if (isOwn) return
-        const key = conversationId || 'general'
-        setUnread((current) => ({
-          ...current,
-          [key]: (current[key] || 0) + 1,
-        }))
-        return
-      }
-
+    const appendMessage = (payload) => {
       setMessages((current) => {
         const id = payload?.id
         if (
@@ -275,6 +270,36 @@ export default function Chat({ session, onLogout, onAuthError }) {
           },
         ])
       })
+    }
+    const onMessage = (payload) => {
+      const conversationId = payload?.conversation_id ?? null
+      const isOwn = payload?.from_user_id === user.id
+      const isActive = conversationId === activeIdRef.current
+
+      // Badge first so a failing notification can never swallow it.
+      if (!isOwn && !isActive) {
+        const key = conversationId || 'general'
+        setUnread((current) => ({
+          ...current,
+          [key]: (current[key] || 0) + 1,
+        }))
+      }
+
+      if (isOwn) {
+        if (isActive) appendMessage(payload)
+        return
+      }
+
+      playNotification()
+
+      if (
+        conversationId &&
+        !conversationsRef.current.some((item) => item.id === conversationId)
+      ) {
+        refreshConversations()
+      }
+
+      if (isActive) appendMessage(payload)
     }
     const onSystem = (payload) => {
       if (activeIdRef.current) return
