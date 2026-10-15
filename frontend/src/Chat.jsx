@@ -46,13 +46,15 @@ const mergeHistory = (current, historyMessages, seqRef) => {
   return sortItems([...current, ...additions])
 }
 
+import lockIcon from './icons/lock.svg'
+
 const conversationLabel = (conversation, userId) => {
-  if (!conversation) return 'Private'
+  if (!conversation) return ''
   const others = (conversation.members || []).filter(
     (member) => member.id !== userId,
   )
   if (others.length === 0) return 'Private'
-  return `Private: ${others.map((member) => member.username).join(', ')}`
+  return `${others.map((member) => member.username).join(', ')}`
 }
 
 export default function Chat({ session, onLogout, onAuthError }) {
@@ -331,16 +333,17 @@ export default function Chat({ session, onLogout, onAuthError }) {
               General
             </button>
             {conversations.map((conversation) => (
-              <button
-                key={conversation.id}
-                type="button"
-                className={
-                  activeId === conversation.id ? 'channel active' : 'channel'
-                }
-                onClick={() => openConversation(conversation.id)}
-              >
-                {conversationLabel(conversation, user.id)}
-              </button>
+                <button
+                  key={conversation.id}
+                  type="button"
+                  className={
+                    activeId === conversation.id ? 'channel active' : 'channel'
+                  }
+                  onClick={() => openConversation(conversation.id)}
+                >
+                  <img src={lockIcon} alt="Private" className="lock" />
+                  {conversationLabel(conversation, user.id)}
+                </button>
             ))}
           </section>
 
@@ -368,9 +371,14 @@ export default function Chat({ session, onLogout, onAuthError }) {
 
         <div className="conversation">
           <div className="conversation-title">
-            {activeId
-              ? conversationLabel(activeConversation, user.id)
-              : 'General'}
+              {activeId
+                ? (
+                  <span>
+                    <img src={lockIcon} alt="Private" className="lock" />
+                    {conversationLabel(activeConversation, user.id)}
+                  </span>
+                )
+                : 'General'}
           </div>
 
           <div className={activeId ? 'messages private' : 'messages'}>
