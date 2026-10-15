@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from flask import request, session
+from flask import current_app, request, session
 from flask_jwt_extended import decode_token
 from flask_socketio import ConnectionRefusedError, SocketIO, emit, join_room, leave_room
 from pydantic import ValidationError
@@ -60,9 +60,15 @@ def register_chat_events(socketio: SocketIO) -> None:
         )
         emit("presence:update", {"user_id": user.id, "online": True}, broadcast=True)
 
-        conv_service = build_conversation_service()
-        for conversation in conv_service.list_for_user(user):
-            join_room(ROOM_CONVERSATION.format(id=conversation.id))
+        try:
+            conv_service = build_conversation_service()
+            for conversation in conv_service.list_for_user(user):
+                join_room(ROOM_CONVERSATION.format(id=conversation.id))
+        except Exception:
+            current_app.logger.exception(
+                "failed to join conversation rooms for user %s", user.id
+            )
+
     @socketio.on("chat:message")
     def handle_message(data):
         user_id = session.get("user_id")
@@ -114,7 +120,18 @@ def register_chat_events(socketio: SocketIO) -> None:
                     )
                     return
 
-        message = build_message_service().create(user, payload.body, conversation_id)
+        try:
+            message = build_message_service().create(
+                user, payload.body, conversation_id
+            )
+        except Exception:
+            current_app.logger.exception("failed to persist chat message")
+            emit(
+                "chat:error",
+                {"error": "Server error", "message": "Could not send message"},
+                to=request.sid,
+            )
+            return
         serialized = MessageReadDTO.from_model(message).model_dump(mode="json")
 
         if is_private:
