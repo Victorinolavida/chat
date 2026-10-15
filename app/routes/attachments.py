@@ -8,23 +8,12 @@ from app.dtos.attachment_dto import (
     AttachmentReadDTO,
     AttachmentUploadDTO,
 )
-from app.models.user import User
 from app.responses import read_json_object, validation_error_response
 from app.routes._helpers import current_user
 from app.services.attachment_service import build_attachment_service
 from app.services.conversation_service import build_conversation_service
 
 attachments_bp = Blueprint("attachments", __name__, url_prefix="/attachments")
-
-
-def _can_view(user: User, attachment) -> bool:
-    if attachment.conversation_id is None:
-        return True
-    if attachment.user_id == user.id:
-        return True
-    return build_conversation_service().is_member(
-        attachment.conversation_id, user.id
-    )
 
 
 @attachments_bp.post("")
@@ -50,18 +39,19 @@ def create_attachment():
                 403,
             )
 
-    attachment, upload_url = build_attachment_service().create_upload(
+    attachment, upload = build_attachment_service().create_upload(
         uploader=me,
         filename=payload.filename,
-        content_type=payload.content_type,
         size_bytes=payload.size_bytes,
+        content_type=payload.content_type,
         conversation_id=payload.conversation_id,
     )
 
     dto = AttachmentUploadDTO(
         **AttachmentReadDTO.from_model(attachment).model_dump(),
         object_key=attachment.object_key,
-        upload_url=upload_url,
+        upload_url=upload["url"],
+        upload_fields=upload.get("fields", {}),
     )
     return jsonify(dto.model_dump(mode="json")), 201
 

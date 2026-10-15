@@ -62,15 +62,22 @@ class StorageService:
         self,
         key: str,
         content_type: str | None = None,
+        max_bytes: int | None = None,
         ttl: int | None = None,
-    ) -> str:
-        params = {"Bucket": self.bucket, "Key": key}
+    ) -> dict:
+        fields = {}
+        conditions = [{"key": key}]
         if content_type:
-            params["ContentType"] = content_type
+            fields["Content-Type"] = content_type
+            conditions.append({"Content-Type": content_type})
+        if max_bytes:
+            conditions.append(["content-length-range", 1, max_bytes])
         try:
-            return self._client.generate_presigned_url(
-                "put_object",
-                Params=params,
+            return self._client.generate_presigned_post(
+                Bucket=self.bucket,
+                Key=key,
+                Fields=fields,
+                Conditions=conditions,
                 ExpiresIn=ttl or self.url_ttl,
             )
         except ClientError as error:

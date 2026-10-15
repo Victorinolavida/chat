@@ -17,6 +17,8 @@ class Attachment(db.Model):
     object_key = db.Column(db.String(512), nullable=False, unique=True)
     filename = db.Column(db.String(255), nullable=False)
     content_type = db.Column(db.String(255), nullable=True)
+    extension = db.Column(db.String(16), nullable=True, index=True)
+    category = db.Column(db.String(32), nullable=True, index=True)
     size_bytes = db.Column(db.BigInteger, nullable=True)
     created_at = db.Column(
         db.DateTime,

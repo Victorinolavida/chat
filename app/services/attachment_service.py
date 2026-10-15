@@ -1,6 +1,7 @@
 from werkzeug.utils import secure_filename
 
 from app.extensions import db
+from app.media import MAX_UPLOAD_BYTES, resolve_media
 from app.models.attachment import Attachment
 from app.models.base import uuid7_str
 from app.models.user import User
@@ -12,19 +13,23 @@ class AttachmentService:
     def _object_key(
         attachment_id: str, conversation_id: str | None, filename: str
     ) -> str:
-        prefix = f"conversations/{conversation_id}" if conversation_id else "general"
+        prefix = (
+            f"conversations/{conversation_id}" if conversation_id else "general_conversation"
+        )
         return f"{prefix}/attachments/{attachment_id}/{filename}"
 
     def create_upload(
         self,
         uploader: User,
         filename: str,
+        size_bytes: int,
         content_type: str | None = None,
-        size_bytes: int | None = None,
         conversation_id: str | None = None,
-    ) -> tuple[Attachment, str]:
+    ) -> tuple[Attachment, dict]:
+        media = resolve_media(filename, content_type)
         attachment_id = uuid7_str()
-        safe_name = secure_filename(filename) or "file"
+        stem = secure_filename(filename).rpartition(".")[0] or "file"
+        safe_name = f"{stem}.{media.extension}"
         object_key = self._object_key(attachment_id, conversation_id, safe_name)
 
         attachment = Attachment(
@@ -33,14 +38,18 @@ class AttachmentService:
             conversation_id=conversation_id,
             object_key=object_key,
             filename=filename,
-            content_type=content_type,
+            content_type=media.content_type,
+            extension=media.extension,
+            category=media.category,
             size_bytes=size_bytes,
         )
         db.session.add(attachment)
         db.session.commit()
 
-        upload_url = build_storage_service().presigned_upload(object_key, content_type)
-        return attachment, upload_url
+        upload = build_storage_service().presigned_upload(
+            object_key, media.content_type, max_bytes=MAX_UPLOAD_BYTES
+        )
+        return attachment, upload
 
     def get(self, attachment_id: str) -> Attachment | None:
         return db.session.get(Attachment, attachment_id)
