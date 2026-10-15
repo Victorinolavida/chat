@@ -69,6 +69,7 @@ export default function Chat({ session, onLogout, onAuthError }) {
   const [onlineUsers, setOnlineUsers] = useState([])
   const [activeId, setActiveId] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [unread, setUnread] = useState({ general: 0 })
   const socketRef = useRef(null)
   const bottomRef = useRef(null)
   const seqRef = useRef(0)
@@ -174,7 +175,15 @@ export default function Chat({ session, onLogout, onAuthError }) {
       if (AUTH_ERROR.test(err?.message || '')) onAuthError()
     }
     const onMessage = (payload) => {
-      if ((payload?.conversation_id ?? null) !== activeIdRef.current) return
+      const conversationId = payload?.conversation_id ?? null
+      if (conversationId !== activeIdRef.current) {
+        const key = payload?.conversation_id || 'general'
+        setUnread((current) => ({
+          ...current,
+          [key]: (current[key] || 0) + 1,
+        }))
+        return
+      }
       setMessages((current) => {
         const id = payload?.id
         if (
@@ -258,11 +267,22 @@ export default function Chat({ session, onLogout, onAuthError }) {
   const text = draft.trim()
   const canSend = text.length > 0 && connected
 
+  const formatUnread = (count) => (count > 99 ? '99+' : count)
+
   const openConversation = (id) => {
     setActiveId(id)
     setMessages([])
     setHistoryError('')
     setLoadingHistory(true)
+    const key = id || 'general'
+    setUnread((current) =>
+      current[key]
+        ? {
+            ...current,
+            [key]: 0,
+          }
+        : current,
+    )
   }
 
   const startConversation = async (otherUser) => {
@@ -330,7 +350,10 @@ export default function Chat({ session, onLogout, onAuthError }) {
               className={activeId === null ? 'channel active' : 'channel'}
               onClick={() => openConversation(null)}
             >
-              General
+              <span className="channel-name">General</span>
+              {unread.general > 0 && (
+                <span className="badge">{formatUnread(unread.general)}</span>
+              )}
             </button>
             {conversations.map((conversation) => (
                 <button
@@ -342,7 +365,14 @@ export default function Chat({ session, onLogout, onAuthError }) {
                   onClick={() => openConversation(conversation.id)}
                 >
                   <img src={lockIcon} alt="Private" className="lock" />
-                  {conversationLabel(conversation, user.id)}
+                  <span className="channel-name">
+                    {conversationLabel(conversation, user.id)}
+                  </span>
+                  {unread[conversation.id] > 0 && (
+                    <span className="badge">
+                      {formatUnread(unread[conversation.id])}
+                    </span>
+                  )}
                 </button>
             ))}
           </section>

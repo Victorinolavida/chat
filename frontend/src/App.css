@@ -118,6 +118,9 @@ button.link {
 }
 
 .sidebar .channel {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
   padding: 0.4rem 0.6rem;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -126,8 +129,28 @@ button.link {
   text-align: left;
   font-size: 0.85rem;
   overflow: hidden;
+}
+
+.sidebar .channel .channel-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.badge {
+  flex-shrink: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #e5484d;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
 }
 
 .sidebar .channel.active {
