@@ -53,8 +53,7 @@ def test_sending_message_persists_and_broadcasts(app_context):
     assert payload["body"] == "hello world"
     assert payload["from_username"] == "sender"
     assert payload["from_user_id"] == user.id
-    assert payload["to_user_id"] is None
-
+    assert payload["conversation_id"] is None
     assert db.session.query(Message).count() == 1
 
 
@@ -97,3 +96,61 @@ def test_whitespace_is_trimmed(app_context):
 
     payload = _of(client.get_received(), "chat:message")[0]["args"][0]
     assert payload["body"] == "hi"
+
+
+def test_private_message_is_isolated_to_members(app_context):
+    from app.services.conversation_service import build_conversation_service
+
+    alice = _make_user(username="alice", email="alice@example.com")
+    bob = _make_user(username="bob", email="bob@example.com")
+    carol = _make_user(username="carol", email="carol@example.com")
+
+    conversation = build_conversation_service().create(alice, [bob.id])
+
+    alice_client = socketio.test_client(app_context, auth={"token": _token(alice)})
+    bob_client = socketio.test_client(app_context, auth={"token": _token(bob)})
+    carol_client = socketio.test_client(app_context, auth={"token": _token(carol)})
+    for client in (alice_client, bob_client, carol_client):
+        client.get_received()
+
+    alice_client.emit(
+        "chat:message",
+        {
+            "message": "secret",
+            "conversation_id": conversation.id,
+            "to_user_id": bob.id,
+            "private": True,
+        },
+    )
+
+    assert len(_of(alice_client.get_received(), "chat:message")) == 1
+    bob_events = _of(bob_client.get_received(), "chat:message")
+    assert len(bob_events) == 1
+    assert bob_events[0]["args"][0]["conversation_id"] == conversation.id
+    assert len(_of(carol_client.get_received(), "chat:message")) == 0
+    assert all(
+        message.conversation_id == conversation.id
+        for message in db.session.query(Message).all()
+    )
+
+
+def test_non_member_cannot_send_to_conversation(app_context):
+    from app.services.conversation_service import build_conversation_service
+
+    alice = _make_user(username="alice", email="alice@example.com")
+    bob = _make_user(username="bob", email="bob@example.com")
+    carol = _make_user(username="carol", email="carol@example.com")
+
+    conversation = build_conversation_service().create(alice, [bob.id])
+
+    carol_client = socketio.test_client(app_context, auth={"token": _token(carol)})
+    carol_client.get_received()
+
+    carol_client.emit(
+        "chat:message", {"message": "intruder", "conversation_id": conversation.id}
+    )
+
+    events = carol_client.get_received()
+    assert len(_of(events, "chat:message")) == 0
+    assert len(_of(events, "chat:error")) == 1
+    assert db.session.query(Message).count() == 0

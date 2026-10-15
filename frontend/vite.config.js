@@ -13,6 +13,8 @@ export default defineConfig(({ mode }) => {
         '/auth': target,
         '/health': target,
         '/messages': target,
+        '/conversations': target,
+        '/users': target,
         '/ws': {
           target,
           ws: true,

@@ -8,12 +8,10 @@ class MessageService:
         self,
         sender: User,
         body: str,
-        to_user: User | None = None,
         conversation_id: str | None = None,
     ) -> Message:
         message = Message(
             from_user_id=sender.id,
-            to_user_id=to_user.id if to_user else None,
             conversation_id=conversation_id,
             body=body,
         )

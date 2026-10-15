@@ -21,3 +21,10 @@ class UserReadDTO(BaseModel):
     username: str
     email: EmailStr
     created_at: datetime
+
+
+class UserPublicDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    username: str
