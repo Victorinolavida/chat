@@ -686,7 +686,6 @@ function MessageItem({ message, userId }) {
   return (
     <div className={mine ? 'bubble mine' : 'bubble theirs'}>
       {!mine && <span className="meta">{message.from_username}</span>}
-      {message.body && <span className="body">{message.body}</span>}
       {attachments.length > 0 && (
         <div className="attachments">
           {attachments.map((attachment) => (
@@ -694,6 +693,7 @@ function MessageItem({ message, userId }) {
           ))}
         </div>
       )}
+      {message.body && <span className="body">{message.body}</span>}
       <span className="time">
         {new Date(message.created_at).toLocaleTimeString()}
       </span>
