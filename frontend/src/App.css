@@ -303,12 +303,91 @@ button.link.small {
 
 .chat form {
   display: flex;
+  flex-direction: column;
   gap: 0.5rem;
 }
 
-.chat form input {
+.chat form .composer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chat form .composer input:not([type='file']) {
   flex: 1;
 }
+
+.pending {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.pending-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-raised);
+  font-size: 0.75rem;
+}
+
+.pending-name {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pending-size {
+  opacity: 0.6;
+}
+
+.attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.attachments .attachment-image {
+  max-width: 100%;
+  max-height: 18rem;
+  border-radius: 8px;
+  display: block;
+}
+
+.attachments .attachment-video {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+.attachments .attachment-audio {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.attachments .attachment-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.attachments .attachment-link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+
+.attachments .attachment-size {
+  opacity: 0.6;
+  font-size: 0.7rem;
+}
+
 
 @media (prefers-color-scheme: dark) {
   :root {

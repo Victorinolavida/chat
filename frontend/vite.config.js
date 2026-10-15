@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => {
         '/messages': target,
         '/conversations': target,
         '/users': target,
+        '/attachments': target,
         '/ws': {
           target,
           ws: true,

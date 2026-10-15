@@ -131,8 +131,11 @@ export default function Chat({ session, onLogout, onAuthError }) {
   const [activeId, setActiveId] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [unread, setUnread] = useState({ general: 0 })
+  const [pending, setPending] = useState([])
+  const [uploading, setUploading] = useState(false)
   const socketRef = useRef(null)
   const bottomRef = useRef(null)
+  const fileInputRef = useRef(null)
   const seqRef = useRef(0)
   const activeIdRef = useRef(activeId)
   const conversationsRef = useRef([])
@@ -360,13 +363,65 @@ export default function Chat({ session, onLogout, onAuthError }) {
   const activeConversation =
     conversations.find((conversation) => conversation.id === activeId) || null
   const text = draft.trim()
-  const canSend = text.length > 0 && connected
+  const canSend =
+    (text.length > 0 || pending.length > 0) && connected && !uploading
 
   const formatUnread = (count) => (count > 99 ? '99+' : count)
+
+  const uploadFile = async (file) => {
+    const meta = await authRequest('/attachments', {
+      method: 'POST',
+      token,
+      payload: {
+        filename: file.name,
+        content_type: file.type || undefined,
+        size_bytes: file.size,
+        conversation_id: activeId || undefined,
+      },
+    })
+    const form = new FormData()
+    Object.entries(meta.upload_fields || {}).forEach(([key, value]) => {
+      form.append(key, value)
+    })
+    form.append('file', file)
+    const response = await fetch(meta.upload_url, { method: 'POST', body: form })
+    if (!response.ok) {
+      throw new Error(`Upload of ${file.name} failed (${response.status})`)
+    }
+    return meta
+  }
+
+  const handleFiles = async (event) => {
+    const files = Array.from(event.target.files || [])
+    event.target.value = ''
+    if (files.length === 0) return
+
+    setError('')
+    setUploading(true)
+    try {
+      for (const file of files) {
+        const meta = await uploadFile(file)
+        setPending((current) => [...current, meta])
+      }
+    } catch (err) {
+      if (isAuthError(err)) {
+        onAuthError()
+        return
+      }
+      setError(err?.message || 'Could not upload file')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const removePending = (id) => {
+    setPending((current) => current.filter((item) => item.id !== id))
+  }
 
   const openConversation = (id) => {
     setActiveId(id)
     setMessages([])
+    setPending([])
     setHistoryError('')
     setLoadingHistory(true)
     const key = id || 'general'
@@ -417,8 +472,12 @@ export default function Chat({ session, onLogout, onAuthError }) {
       )
       if (other) payload.to_user_id = other.id
     }
+    if (pending.length > 0) {
+      payload.attachment_ids = pending.map((item) => item.id)
+    }
     socketRef.current.emit('chat:message', payload)
     setDraft('')
+    setPending([])
     if (activeId) setRefreshKey((key) => key + 1)
   }
 
@@ -528,15 +587,51 @@ export default function Chat({ session, onLogout, onAuthError }) {
           {error && <p className="error">{error}</p>}
 
           <form onSubmit={send}>
-            <input
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder="Type a message…"
-              autoFocus
-            />
-            <button type="submit" disabled={!canSend}>
-              Send
-            </button>
+            {pending.length > 0 && (
+              <div className="pending">
+                {pending.map((item) => (
+                  <span key={item.id} className="pending-item">
+                    <span className="pending-name">{item.filename}</span>
+                    <span className="pending-size">{item.human_size}</span>
+                    <button
+                      type="button"
+                      className="link small"
+                      onClick={() => removePending(item.id)}
+                      aria-label={`Remove ${item.filename}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="composer">
+              <input
+                ref={fileInputRef}
+                type="file"
+                onChange={handleFiles}
+                multiple
+                hidden
+              />
+              <button
+                type="button"
+                className="attach"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!connected || uploading}
+                title="Attach a file"
+              >
+                {uploading ? 'Uploading…' : 'Attach'}
+              </button>
+              <input
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                placeholder="Type a message…"
+                autoFocus
+              />
+              <button type="submit" disabled={!canSend}>
+                Send
+              </button>
+            </div>
           </form>
         </div>
       </div>
@@ -544,12 +639,61 @@ export default function Chat({ session, onLogout, onAuthError }) {
   )
 }
 
+function AttachmentView({ attachment }) {
+  const url = attachment.download_url
+  if (attachment.category === 'image') {
+    return (
+      <a href={url} target="_blank" rel="noreferrer">
+        <img
+          className="attachment-image"
+          src={url}
+          alt={attachment.filename}
+          loading="lazy"
+        />
+      </a>
+    )
+  }
+  if (attachment.category === 'audio') {
+    return (
+      <div className="attachment-audio">
+        <span className="attachment-name">{attachment.filename}</span>
+        <audio controls src={url} />
+      </div>
+    )
+  }
+  if (attachment.category === 'video') {
+    return (
+      <video className="attachment-video" controls src={url} />
+    )
+  }
+  return (
+    <a
+      className="attachment-link"
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      download={attachment.filename}
+    >
+      <span className="attachment-name">{attachment.filename}</span>
+      <span className="attachment-size">{attachment.human_size}</span>
+    </a>
+  )
+}
+
 function MessageItem({ message, userId }) {
   const mine = message.from_user_id === userId
+  const attachments = message.attachments || []
   return (
     <div className={mine ? 'bubble mine' : 'bubble theirs'}>
       {!mine && <span className="meta">{message.from_username}</span>}
-      <span className="body">{message.body}</span>
+      {message.body && <span className="body">{message.body}</span>}
+      {attachments.length > 0 && (
+        <div className="attachments">
+          {attachments.map((attachment) => (
+            <AttachmentView key={attachment.id} attachment={attachment} />
+          ))}
+        </div>
+      )}
       <span className="time">
         {new Date(message.created_at).toLocaleTimeString()}
       </span>
