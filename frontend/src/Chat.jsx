@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { io } from 'socket.io-client'
 import { authRequest } from './api'
 
@@ -57,6 +57,48 @@ const conversationLabel = (conversation, userId) => {
   return `${others.map((member) => member.username).join(', ')}`
 }
 
+// Plays a short Web Audio chime for incoming messages. The AudioContext is
+// created lazily on the first user gesture so browsers don't block it.
+const useNotificationSound = () => {
+  const contextRef = useRef(null)
+
+  useEffect(() => {
+    const unlock = () => {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext
+      if (!AudioCtx) return
+      if (!contextRef.current) contextRef.current = new AudioCtx()
+      if (contextRef.current.state === 'suspended') contextRef.current.resume()
+    }
+
+    window.addEventListener('pointerdown', unlock)
+    window.addEventListener('keydown', unlock)
+    return () => {
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+      contextRef.current?.close?.()
+      contextRef.current = null
+    }
+  }, [])
+
+  return useCallback(() => {
+    const context = contextRef.current
+    if (!context || context.state !== 'running') return
+
+    const now = context.currentTime
+    const oscillator = context.createOscillator()
+    const gain = context.createGain()
+    oscillator.type = 'sine'
+    oscillator.frequency.setValueAtTime(880, now)
+    oscillator.frequency.exponentialRampToValueAtTime(1320, now + 0.12)
+    gain.gain.setValueAtTime(0.0001, now)
+    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3)
+    oscillator.connect(gain).connect(context.destination)
+    oscillator.start(now)
+    oscillator.stop(now + 0.32)
+  }, [])
+}
+
 export default function Chat({ session, onLogout, onAuthError }) {
   const { user, token } = session
   const [messages, setMessages] = useState([])
@@ -74,10 +116,40 @@ export default function Chat({ session, onLogout, onAuthError }) {
   const bottomRef = useRef(null)
   const seqRef = useRef(0)
   const activeIdRef = useRef(activeId)
+  const conversationsRef = useRef([])
+  const playNotification = useNotificationSound()
 
   useEffect(() => {
     activeIdRef.current = activeId
   }, [activeId])
+
+  useEffect(() => {
+    conversationsRef.current = conversations
+  }, [conversations])
+
+  const refreshConversations = useCallback(
+    async (signal) => {
+      try {
+        const data = await authRequest('/conversations', {
+          method: 'GET',
+          token,
+          signal,
+        })
+        if (signal?.aborted) return
+        setConversations(
+          Array.isArray(data?.conversations) ? data.conversations : [],
+        )
+      } catch (err) {
+        if (signal?.aborted) return
+        if (isAuthError(err)) {
+          onAuthError()
+          return
+        }
+        setError('Could not load conversations.')
+      }
+    },
+    [token, onAuthError],
+  )
 
   // Keep online users in sync while the component is mounted.
   useEffect(() => {
@@ -101,30 +173,13 @@ export default function Chat({ session, onLogout, onAuthError }) {
     }
 
     const loadConversations = async () => {
-      try {
-        const data = await authRequest('/conversations', {
-          method: 'GET',
-          token,
-          signal,
-        })
-        if (signal.aborted) return
-        setConversations(
-          Array.isArray(data?.conversations) ? data.conversations : [],
-        )
-      } catch (err) {
-        if (signal.aborted) return
-        if (isAuthError(err)) {
-          onAuthError()
-          return
-        }
-        setError('Could not load conversations.')
-      }
+      await refreshConversations(signal)
     }
 
     refreshOnline()
     loadConversations()
     return () => controller.abort()
-  }, [token, user.id, onAuthError])
+  }, [token, user.id, onAuthError, refreshConversations])
 
   // Fetch (and refetch) history whenever the active conversation changes.
   useEffect(() => {
@@ -176,14 +231,29 @@ export default function Chat({ session, onLogout, onAuthError }) {
     }
     const onMessage = (payload) => {
       const conversationId = payload?.conversation_id ?? null
-      if (conversationId !== activeIdRef.current) {
-        const key = payload?.conversation_id || 'general'
+      const isOwn = payload?.from_user_id === user.id
+      const isActive = conversationId === activeIdRef.current
+
+      if (!isOwn) {
+        playNotification()
+        if (
+          conversationId &&
+          !conversationsRef.current.some((item) => item.id === conversationId)
+        ) {
+          refreshConversations()
+        }
+      }
+
+      if (!isActive) {
+        if (isOwn) return
+        const key = conversationId || 'general'
         setUnread((current) => ({
           ...current,
           [key]: (current[key] || 0) + 1,
         }))
         return
       }
+
       setMessages((current) => {
         const id = payload?.id
         if (
@@ -256,7 +326,7 @@ export default function Chat({ session, onLogout, onAuthError }) {
       socket.disconnect()
       socketRef.current = null
     }
-  }, [token, user.id, onAuthError])
+  }, [token, user.id, onAuthError, refreshConversations, playNotification])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
