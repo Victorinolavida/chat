@@ -23,3 +23,10 @@ class Config:
     DEBUG = os.getenv("DEBUG", "true").lower() in {"1", "true", "yes", "on"}
 
     SOCKETIO_PATH = os.getenv("SOCKETIO_PATH", "/ws")
+
+    STORAGE_ENDPOINT = os.getenv("SILO_ENDPOINT", "http://localhost:9000")
+    STORAGE_ACCESS_KEY = os.getenv("SILO_ACCESS_KEY", "admin")
+    STORAGE_SECRET_KEY = os.getenv("SILO_SECRET_KEY", "adminadmin")
+    STORAGE_BUCKET = os.getenv("SILO_BUCKET", "chat")
+    STORAGE_REGION = os.getenv("SILO_REGION", "us-east-1")
+    STORAGE_URL_TTL = int(os.getenv("SILO_URL_TTL", "3600"))
