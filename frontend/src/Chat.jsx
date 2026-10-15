@@ -47,6 +47,17 @@ const mergeHistory = (current, historyMessages, seqRef) => {
 }
 
 import lockIcon from './icons/lock.svg'
+import fileIcon from './icons/file.svg'
+import fileTextIcon from './icons/file-text.svg'
+import filePdfIcon from './icons/file-pdf.svg'
+
+const attachmentIcon = (attachment) => {
+  if (attachment.extension === 'pdf' || attachment.content_type === 'application/pdf') {
+    return filePdfIcon
+  }
+  if (attachment.category === 'text') return fileTextIcon
+  return fileIcon
+}
 
 const conversationLabel = (conversation, userId) => {
   if (!conversation) return ''
@@ -674,6 +685,11 @@ function AttachmentView({ attachment }) {
       rel="noreferrer"
       download={attachment.filename}
     >
+      <img
+        src={attachmentIcon(attachment)}
+        alt=""
+        className="attachment-icon"
+      />
       <span className="attachment-name">{attachment.filename}</span>
       <span className="attachment-size">{attachment.human_size}</span>
     </a>

@@ -373,19 +373,34 @@ button.link.small {
 .attachments .attachment-name {
   font-size: 0.75rem;
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 16rem;
 }
 
 .attachments .attachment-link {
   display: inline-flex;
-  align-items: baseline;
-  gap: 0.4rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
   font-size: 0.8rem;
   color: var(--accent);
+  text-decoration: none;
+}
+
+.attachments .attachment-icon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
 }
 
 .attachments .attachment-size {
   opacity: 0.6;
   font-size: 0.7rem;
+  white-space: nowrap;
 }
 
 
