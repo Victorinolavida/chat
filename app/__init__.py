@@ -18,9 +18,16 @@ def create_app(config_class: type = Config) -> Flask:
     )
 
     from app import models  # noqa: F401  (register models with Alembic)
-    from app.routes import auth_bp, conversations_bp, messages_bp, users_bp
+    from app.routes import (
+        attachments_bp,
+        auth_bp,
+        conversations_bp,
+        messages_bp,
+        users_bp,
+    )
     from app.sockets import register_chat_events
 
+    app.register_blueprint(attachments_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(messages_bp)
     app.register_blueprint(conversations_bp)

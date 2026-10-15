@@ -58,6 +58,24 @@ class StorageService:
         except ClientError as error:
             raise StorageError(f"could not sign url for {key!r}") from error
 
+    def presigned_upload(
+        self,
+        key: str,
+        content_type: str | None = None,
+        ttl: int | None = None,
+    ) -> str:
+        params = {"Bucket": self.bucket, "Key": key}
+        if content_type:
+            params["ContentType"] = content_type
+        try:
+            return self._client.generate_presigned_url(
+                "put_object",
+                Params=params,
+                ExpiresIn=ttl or self.url_ttl,
+            )
+        except ClientError as error:
+            raise StorageError(f"could not sign upload url for {key!r}") from error
+
 
 def _client() -> "boto3.client":
     client = current_app.extensions.get(_EXTENSION_KEY)
