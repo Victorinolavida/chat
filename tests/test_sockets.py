@@ -83,7 +83,7 @@ def test_empty_message_is_rejected(app_context):
     assert len(_of(events, "chat:message")) == 0
     errors = _of(events, "chat:error")
     assert len(errors) == 1
-    assert "empty" in errors[0]["args"][0]["message"].lower()
+    assert "include text or at least one attachment" in errors[0]["args"][0]["message"].lower()
     assert db.session.query(Message).count() == 0
 
 

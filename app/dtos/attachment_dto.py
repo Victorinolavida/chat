@@ -29,6 +29,7 @@ class AttachmentReadDTO(BaseModel):
     id: str
     user_id: int
     conversation_id: str | None = None
+    message_id: str | None = None
     filename: str
     content_type: str | None = None
     extension: str | None = None
@@ -50,6 +51,7 @@ class AttachmentReadDTO(BaseModel):
             id=attachment.id,
             user_id=attachment.user_id,
             conversation_id=attachment.conversation_id,
+            message_id=attachment.message_id,
             filename=attachment.filename,
             content_type=attachment.content_type,
             extension=attachment.extension,

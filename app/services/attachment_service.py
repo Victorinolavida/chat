@@ -1,3 +1,4 @@
+from flask import current_app
 from werkzeug.utils import secure_filename
 
 from app.extensions import db
@@ -5,7 +6,7 @@ from app.media import MAX_UPLOAD_BYTES, resolve_media
 from app.models.attachment import Attachment
 from app.models.base import uuid7_str
 from app.models.user import User
-from app.services.storage_service import build_storage_service
+from app.services.storage_service import StorageError, build_storage_service
 
 
 class AttachmentService:
@@ -72,6 +73,24 @@ class AttachmentService:
         build_storage_service().delete(attachment.object_key)
         db.session.delete(attachment)
         db.session.commit()
+
+    def delete_for_message(self, message_id: str) -> int:
+        attachments = list(
+            db.session.execute(
+                db.select(Attachment).filter(Attachment.message_id == message_id)
+            ).scalars()
+        )
+        storage = build_storage_service()
+        for attachment in attachments:
+            try:
+                storage.delete(attachment.object_key)
+            except StorageError:
+                current_app.logger.exception(
+                    "failed to delete object %s from storage", attachment.object_key
+                )
+            db.session.delete(attachment)
+        db.session.commit()
+        return len(attachments)
 
 
 def build_attachment_service() -> AttachmentService:

@@ -23,6 +23,13 @@ class Message(db.Model):
     from_user = db.relationship(
         "User", foreign_keys=[from_user_id], backref="sent_messages"
     )
+    attachments = db.relationship(
+        "Attachment",
+        back_populates="message",
+        cascade="all, delete-orphan",
+        order_by="Attachment.created_at",
+        lazy="selectin",
+    )
 
     def __repr__(self) -> str:
         return f"<Message {self.id} from={self.from_user_id}>"

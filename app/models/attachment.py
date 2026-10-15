@@ -14,6 +14,12 @@ class Attachment(db.Model):
     conversation_id = db.Column(
         db.String(36), db.ForeignKey("conversations.id"), nullable=True, index=True
     )
+    message_id = db.Column(
+        db.String(36),
+        db.ForeignKey("messages.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     object_key = db.Column(db.String(512), nullable=False, unique=True)
     filename = db.Column(db.String(255), nullable=False)
     content_type = db.Column(db.String(255), nullable=True)
@@ -28,6 +34,7 @@ class Attachment(db.Model):
     )
 
     user = db.relationship("User", backref="attachments")
+    message = db.relationship("Message", back_populates="attachments")
 
     def __repr__(self) -> str:
         return f"<Attachment {self.id} key={self.object_key}>"
