@@ -10,7 +10,7 @@ from app.dtos.message_dto import MessageCreateDTO, MessageReadDTO
 from app.extensions import db
 from app.models.user import User
 from app.services.conversation_service import build_conversation_service
-from app.services.message_service import build_message_service
+from app.services.message_service import InvalidAttachmentError, build_message_service
 
 ROOM_LOBBY = "lobby"
 ROOM_CONVERSATION = "conversation:{id}"
@@ -82,7 +82,10 @@ def register_chat_events(socketio: SocketIO) -> None:
 
         try:
             payload = MessageCreateDTO.model_validate(
-                {"body": (data or {}).get("message", "")}
+                {
+                    "body": (data or {}).get("message", ""),
+                    "attachment_ids": (data or {}).get("attachment_ids") or [],
+                }
             )
         except ValidationError as error:
             emit(
@@ -122,8 +125,15 @@ def register_chat_events(socketio: SocketIO) -> None:
 
         try:
             message = build_message_service().create(
-                user, payload.body, conversation_id
+                user, payload.body, conversation_id, payload.attachment_ids
             )
+        except InvalidAttachmentError as invalid:
+            emit(
+                "chat:error",
+                {"error": "Invalid attachment", "message": str(invalid)},
+                to=request.sid,
+            )
+            return
         except Exception:
             current_app.logger.exception("failed to persist chat message")
             emit(
